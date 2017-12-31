@@ -26,14 +26,14 @@ map_size = size(map);
 
 % Decide the number of particles, M.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-M = 1000;                        % Please decide a reasonable number of M, 
+M = 700;                        % Please decide a reasonable number of M, 
                                % based on your experiment using the practice data.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Create M number of particles
 %P = repmat(myPose(:,1), [1, M]);
-W = 1/M*ones(1,M); % initial weights uniform
+%W = 1/M*ones(1,M); % initial weights uniform
 
-sig_m = diag([0.025 0.025 0.03]);
+sig_m = diag([0.01 0.01 0.03]);
 for j = 2:N % You will start estimating myPose from j=2 using ranges(:,2).
 
     % 1) Propagate the particles 
@@ -41,6 +41,7 @@ for j = 2:N % You will start estimating myPose from j=2 using ranges(:,2).
       
     % 2) Measurement Update 
     d = ranges(:,j)';
+    correlation_scores = zeros(1,M);
     for m=1:M
         %   2-1) Find grid cells hit by the rays (in the grid map coordinate frame)    
         pose = P(:,m);
@@ -49,20 +50,20 @@ for j = 2:N % You will start estimating myPose from j=2 using ranges(:,2).
         % remove indices out of map boundaries
         rem_idx = occupied_cells_idx(1,:) > map_size(2) | occupied_cells_idx(2,:) > map_size(1) | occupied_cells_idx(1,:) < 1 | occupied_cells_idx(2,:) < 1;
         occupied_cells_idx(:,rem_idx) = [];
-        occupied_cells_idx = sub2ind(map_size, occupied_cells_idx(2,:), occupied_cells_idx(1,:));
+        occupied_cells_idx = unique(sub2ind(map_size, occupied_cells_idx(2,:), occupied_cells_idx(1,:)));
         
         %   2-2) For each particle, calculate the correlation scores of the particles
         % count true occupied cell score
-        W(m) = 10*sum(map(occupied_cells_idx)>0.49);
+        correlation_scores(m) = 10*sum(map(occupied_cells_idx)>0.49);
         % count false occupied cell score
-        W(m) = W(m) - 2*sum(map(occupied_cells_idx)<0);
+        correlation_scores(m) = correlation_scores(m) - 2*sum(map(occupied_cells_idx)<0);
     end
     
     %   2-3) Update the particle weights
-    W = W/sum(W);
+    correlation_scores = correlation_scores/sum(correlation_scores);
  
     %   2-4) Choose the best particle to update the pose
-    [~,p] = max(W);
+    [~,p] = max(correlation_scores);
     myPose(:,j) = P(:,p);
     
     % 3) Resample if the effective number of particles is smaller than a threshold
